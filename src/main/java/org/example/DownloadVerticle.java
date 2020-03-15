@@ -4,6 +4,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.file.OpenOptions;
 import io.vertx.core.json.JsonArray;
@@ -50,23 +51,43 @@ public class DownloadVerticle extends AbstractVerticle {
         final String dir = config().getString("dir");
         final String targetDir = dir + File.separator + name;
 
-        fs.createFile(targetDir, fileRes -> {
+        fs.mkdirs(targetDir, fileRes -> {
             if (fileRes.succeeded()) {
-                System.out.printf("创建文件夹:%s成功，开始下载图片。\n", targetDir);
+                System.out.printf("创建文件夹:%s成功，开始下载图片...\n", targetDir);
                 List<String> urlList = urls.stream()
+                        .filter(elem -> !elem.equals("https://one-piece.cn/templets/default/images/logo.png"))
                         .map(elem -> (String) elem)
                         .collect(Collectors.toList());
                 int id = 0;
                 for (String url : urlList) {
-                    final String comicTargetFileName = targetDir + File.pathSeparator + (id++);
+                    final String comicTargetFileName = targetDir + File.separator + (id++) + ".jpg";
                     final OpenOptions openOptions = new OpenOptions()
                             .setCreateNew(true)
                             .setWrite(true);
                     fs.open(comicTargetFileName,
                             openOptions,
-                            comicRes -> downloadFile(comicRes.result(), url));
+                            comicRes -> {
+                                final WriteStream<Buffer> asyncFile = comicRes.result();
+                                downloadClient.getAbs(url)
+                                        .putHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                                        .putHeader("Host", "wx1.sinaimg.cn")
+                                        .putHeader("TE", "Trailers")
+                                        .putHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:74.0) Gecko/20100101 Firefox/74.0")
+                                        .as(BodyCodec.pipe(asyncFile))
+                                        .send(res -> {
+                                            if (res.failed()) {
+                                                System.out.printf("下载图片:%s失败\n", url);
+                                            }
+                                        });
+
+//                                asyncFile.flush(flush -> {
+//                                    if (flush.failed()) {
+//                                        System.out.printf("图片保存失败%s...", url);
+//                                    }
+//                                });
+                            });
                 }
-                System.out.printf("文件夹:%s下所有读片读取成功!\n", targetDir);
+                System.out.printf("文件夹:%s下所有图片读取成功!\n", targetDir);
             } else {
                 System.out.printf("创建文件夹:%s失败.\n", targetDir);
             }
@@ -74,7 +95,12 @@ public class DownloadVerticle extends AbstractVerticle {
     }
 
     private void downloadFile(WriteStream<Buffer> writeStream, String url) {
-        downloadClient.get(url)
+        final String targetUrl = url.substring(22);
+        downloadClient.get("wx1.sinaimg.cn", targetUrl)
+                .putHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                .putHeader("Host", "wx1.sinaimg.cn")
+                .putHeader("TE", "Trailers")
+                .putHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:74.0) Gecko/20100101 Firefox/74.0")
                 .as(BodyCodec.pipe(writeStream))
                 .send(res -> {
                     if (res.failed()) {

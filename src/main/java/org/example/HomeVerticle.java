@@ -3,6 +3,7 @@ package org.example;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
@@ -12,8 +13,8 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class HomeVerticle extends AbstractVerticle {
@@ -66,26 +67,31 @@ public class HomeVerticle extends AbstractVerticle {
                         final Elements elements = document.getElementsByClass("chapter");
                         if (!elements.isEmpty()) {
                             System.out.println("首页数据解析成功，开始传输...");
-                            final Set<String> set = new HashSet<>(1024);
+                            final Map<String, String> map = new HashMap<>(1024);
+                            final List<String> list = new ArrayList<>(1024);
                             for (Element divElem : elements) {
                                 final Elements aElements = divElem.getElementsByTag("a");
                                 for (Element aElem : aElements) {
                                     final String url = aElem.attr("href");
                                     final String name = aElem.text();
-                                    if (!set.contains(name)) {
-                                        final JsonObject resObject = new JsonObject()
-                                                .put("url", url)
-                                                .put("name", name);
-                                        vertx.eventBus().send(Messages.COMIC_REQUEST, resObject);
-                                        set.add(name);
-                                        try {
-                                            Thread.sleep(20);
-                                        } catch (InterruptedException e) {
-                                            e.printStackTrace();
-                                        }
+                                    if (!map.containsKey(name)) {
+                                        map.put(name, url);
+                                        list.add(name);
                                     }
                                 }
                             }
+                            System.out.println("开始定时发送...");
+                            final AtomicInteger num = new AtomicInteger(0);
+                            vertx.setPeriodic(500, periodic -> {
+                                if (num.get() >= list.size()) {
+                                    vertx.close();
+                                }
+                                final String name = list.get(num.getAndIncrement());
+                                final JsonObject sendObject = new JsonObject()
+                                        .put("url", map.get(name))
+                                        .put("name", name);
+                                vertx.eventBus().send(Messages.COMIC_REQUEST, sendObject);
+                            });
                         } else {
                             System.out.println("解析数据失败");
                             System.out.println(body);

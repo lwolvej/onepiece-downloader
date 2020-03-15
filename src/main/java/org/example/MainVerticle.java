@@ -3,7 +3,10 @@ package org.example;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Promise;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainVerticle extends AbstractVerticle {
 
@@ -41,6 +44,15 @@ public class MainVerticle extends AbstractVerticle {
             if (downloadRes.succeeded()) {
                 vertx.deployVerticle(ComicVerticle.class.getName(), comicDeployOptions, comicRes -> {
                     if (comicRes.succeeded()) {
+//                        final AtomicInteger num = new AtomicInteger(800);
+//                        vertx.setPeriodic(500, periodicRes -> {
+//                            if (num.get() < 975) {
+//                                final JsonObject sendObject = new JsonObject()
+//                                        .put("url", "/post/" + (10000 + num.get()))
+//                                        .put("name", "" + num.getAndIncrement());
+//                                vertx.eventBus().send(Messages.COMIC_REQUEST, sendObject);
+//                            }
+//                        });
                         vertx.deployVerticle(HomeVerticle.class.getName(), homeDeployOptions, homeRes -> {
                             if (homeRes.succeeded()) {
                                 vertx.eventBus().send(Messages.HOME_REQUEST, new JsonObject());

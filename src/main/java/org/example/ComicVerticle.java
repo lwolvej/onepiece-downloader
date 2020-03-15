@@ -28,7 +28,6 @@ public class ComicVerticle extends AbstractVerticle {
 
         final WebClientOptions options = new WebClientOptions()
                 .setConnectTimeout(60000)
-//                .setFollowRedirects(false)
                 .setIdleTimeout(60000);
 
 
@@ -74,11 +73,6 @@ public class ComicVerticle extends AbstractVerticle {
                                     .put("name", name)
                                     .put("urls", urls);
                             vertx.eventBus().send(Messages.COMIC_DOWNLOAD, jsonRes);
-                            try {
-                                Thread.sleep(100);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
                         } else {
                             if (name.equals("第848话 再见")) {
                                 System.out.println(document);
